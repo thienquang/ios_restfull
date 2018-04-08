@@ -22,6 +22,26 @@ class Music: Codable {
     case music_url, name, description
   }
   
+  func encode(to encoder: Encoder) throws {
+    var container = encoder.container(keyedBy: CodingKeys.self)
+    let serverGUID = guid?.replacingOccurrences(of: "id:", with: "")
+    try container.encode(serverGUID, forKey: .guid)
+    try container.encode(name, forKey: .name)
+    try container.encode(music_url, forKey: .music_url)
+    try container.encode(description, forKey: .description)
+    // rest of properties
+  }
+  
+  required init(from decoder: Decoder) throws {
+    let values = try decoder.container(keyedBy: CodingKeys.self)
+    let val = try values.decode(String.self, forKey: .guid)
+    guid = "id:\(val)"
+    name = try values.decode(String.self, forKey: .name)
+    music_url = try values.decode(String.self, forKey: .music_url)
+    description = try values.decode(String.self, forKey: .description)
+    /// rest of the properties
+  }
+  
   static func fetch(withID id: Int, completionHandler: @escaping (Music) -> Void) {
     let urlString = DomainURL + "music/id/\(id)"
     
@@ -29,6 +49,21 @@ class Music: Codable {
       let task = URLSession.shared.dataTask(with: url, completionHandler: { (data, response, error) in
         print(String.init(data: data!, encoding: .ascii) ?? "no data")
         if let newMusic = try?  JSONDecoder().decode(Music.self, from: data!) {
+          completionHandler(newMusic)
+        }
+        
+      })
+      task.resume()
+    }
+  }
+  
+  static func fetchAll(completionHandler: @escaping ([Music]) -> Void) {
+    let urlString = DomainURL + "music/"
+    
+    if let url = URL.init(string: urlString) {
+      let task = URLSession.shared.dataTask(with: url, completionHandler: { (data, response, error) in
+        print(String.init(data: data!, encoding: .ascii) ?? "no data")
+        if let newMusic = try?  JSONDecoder().decode([Music].self, from: data!) {
           completionHandler(newMusic)
         }
         
@@ -86,6 +121,10 @@ class ViewController: UIViewController {
 
   override func viewDidAppear(_ animated: Bool) {
     super.viewDidAppear(animated)
+    Music.fetchAll { (musics) in
+      print(musics.count)
+    }
+    
     Music.fetch(withID: 1) { (newMusic) in
       print(newMusic.music_url ?? "no_url")
 //      if let musicData = try? JSONEncoder().encode(newMusic) {
@@ -94,7 +133,7 @@ class ViewController: UIViewController {
 //      newMusic.saveToServer()
 //      newMusic.description = "something new"
 //      newMusic.updateServer()
-      newMusic.deleteFromServer()
+//      newMusic.deleteFromServer()
     }
   }
   
